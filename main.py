@@ -1,48 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
 
-# --- 1. Parameter definieren ---
-f_b = 40.0          # Ziel-Abstimmfrequenz in Hz
-c = 343.0           # Schallgeschwindigkeit in m/s
-k = 0.825           # Mündungskorrektur
-D_min_cm = 5.0      # Mindestdurchmesser gegen Strömungsgeräusche (cm)
+# Importiere Konstanten und Rechenfunktionen aus separaten Modulen
+from konstanten import f_b, VOLUMEN_MIN, VOLUMEN_MAX, VOLUMEN_SCHRITTE, DURCHMESSER_MIN, DURCHMESSER_MAX, DURCHMESSER_SCHRITTE
+from berechnung import berechne_L_cm, berechne_optimum, berechne_grid
 
-# Funktion zur Berechnung der Kanallänge L (in cm)
-def berechne_L_cm(V_liter, D_cm):
-    V_m3 = V_liter / 1000.0
-    r_m = (D_cm / 100.0) / 2.0
-    A_m2 = np.pi * (r_m ** 2)
-    L_m = ((c**2) * A_m2) / (4 * (np.pi**2) * (f_b**2) * V_m3) - (k * r_m)
-    return L_m * 100.0
+# --- 1. Mathematisches Optimum berechnen ---
+opt_V, opt_D, opt_L = berechne_optimum()
 
-# --- 2. Mathematisches Optimum berechnen ---
-def zielfunktion(x):
-    return x[0]  # Volumen V minimieren
-
-def constraint_passform(x):
-    V_liter, D_cm = x
-    kantenlaenge_cm = (V_liter / 1000.0)**(1/3) * 100.0
-    L_cm = berechne_L_cm(V_liter, D_cm)
-    # Rohr muss inklusive Sicherheitsabstand in Kiste passen
-    return (kantenlaenge_cm - D_cm) - L_cm
-
-bounds = [(5.0, 30.0), (D_min_cm, 10.0)]  # Grenzen für V (Liter) und D (cm)
-constraints = [{'type': 'ineq', 'fun': constraint_passform}]
-
-ergebnis = minimize(zielfunktion, [15.0, 6.0], method='SLSQP', bounds=bounds, constraints=constraints)
-
-opt_V = ergebnis.x[0]
-opt_D = ergebnis.x[1]
-opt_L = berechne_L_cm(opt_V, opt_D)
-
-# --- 3. 3D-Grid für die Oberfläche erstellen ---
-volumen_liter = np.linspace(5, 30, 50)
-durchmesser_cm = np.linspace(3, 10, 50)
-V_grid, D_grid = np.meshgrid(volumen_liter, durchmesser_cm)
-
-L_grid = berechne_L_cm(V_grid, D_grid)
-L_grid[L_grid < 0] = np.nan  # Physikalisch unmögliche Werte ausblenden
+# --- 2. 3D-Grid für die Oberfläche erstellen ---
+volumen_liter = np.linspace(VOLUMEN_MIN, VOLUMEN_MAX, VOLUMEN_SCHRITTE)
+durchmesser_cm = np.linspace(DURCHMESSER_MIN, DURCHMESSER_MAX, DURCHMESSER_SCHRITTE)
+V_grid, D_grid, L_grid = berechne_grid(volumen_liter, durchmesser_cm)
 
 # --- 4. Visualisierung mit Matplotlib ---
 fig = plt.figure(figsize=(11, 8))
